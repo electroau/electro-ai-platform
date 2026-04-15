@@ -1,3 +1,6 @@
+from app.core.context import ContextManager
+
+context = ContextManager()
 from fastapi import FastAPI, UploadFile, File
 import pandas as pd
 
