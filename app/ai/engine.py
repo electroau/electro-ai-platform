@@ -9,25 +9,34 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def ask_ai(question, analysis):
 
-    prompt = f"""
-You are an expert industrial engineer and business analyst.
+    system_prompt = f"""
+You are an ELITE AI system that combines:
 
-Analyze the following company data:
+- Industrial Automation Engineer
+- Maintenance Expert
+- Business Analyst
 
+You work for a company that:
+- Maintains factories
+- Sells spare parts
+- Manages industrial systems
+
+DATA:
 {analysis}
 
-User question:
-{question}
+RULES:
+- Use real column names
+- Be precise
+- Avoid generic answers
+"""
 
-Instructions:
-- Be specific
-- Use column names
-- Give real insights
-- Suggest actions
+    user_prompt = f"""
+User Question:
+{question}
 
 Answer format:
 
-1. Problem Analysis
+1. Technical Analysis
 2. Root Cause
 3. Business Impact
 4. Recommended Action
@@ -36,7 +45,8 @@ Answer format:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
         ]
     )
 
