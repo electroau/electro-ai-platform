@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 import pandas as pd
 
 from app.analysis.analyzer import analyze_dataframe
+from app.ai.engine import ask_ai
 
 app = FastAPI()
 
@@ -22,5 +23,17 @@ async def upload_file(file: UploadFile = File(...)):
 
     return {
         "message": "File uploaded and analyzed successfully",
-        "analysis": last_analysis
+        "columns": last_analysis["columns"]
     }
+
+
+@app.post("/query")
+def query_ai(question: str):
+    global last_analysis
+
+    if last_analysis is None:
+        return {"error": "Upload a file first"}
+
+    response = ask_ai(question, last_analysis)
+
+    return {"response": response}
