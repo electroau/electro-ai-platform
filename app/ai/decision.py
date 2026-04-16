@@ -2,6 +2,9 @@ class DecisionEngine:
 
     def analyze(self, ai_response: str):
 
+        if not ai_response or not isinstance(ai_response, str):
+            return []
+
         decisions = []
 
         text = ai_response.lower()
