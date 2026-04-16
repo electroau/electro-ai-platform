@@ -6,7 +6,9 @@ from app.analysis.analyzer import analyze_dataframe
 from app.ai.router import AIRouter
 from app.core.context import ContextManager
 from app.core.actions import ActionExecutor
+from app.core.database import Database
 
+db = Database()
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -22,7 +24,10 @@ last_analysis = None
 @app.get("/")
 def root():
     return {"message": "Electro AI Platform Running"}
-
+    
+@app.get("/work-orders")
+def get_work_orders():
+    return db.get_work_orders()
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
