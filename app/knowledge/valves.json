@@ -1,0 +1,16 @@
+{
+  "RH013": {
+    "type": "Control Valve",
+    "fail_open_delay": 20,
+    "common_problems": [
+      "Actuator air failure",
+      "Positioner malfunction",
+      "Wrong fail open delay setting"
+    ],
+    "diagnostics": [
+      "Check air pressure supply",
+      "Verify position feedback signal",
+      "Check fail_open_delay parameter in HMI"
+    ]
+  }
+}
