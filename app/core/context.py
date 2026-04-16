@@ -4,18 +4,16 @@ from typing import Dict, List, Optional
 
 class ContextManager:
     """
-    Production-ready Context Manager
+    Production-ready Context Manager (Hybrid)
 
     Features:
-    - Multi-session support
+    - Session-based
     - Thread-safe
-    - Isolated user context
+    - Ready for Redis upgrade
     """
 
     def __init__(self):
         self._lock = threading.Lock()
-
-        # session_id -> context data
         self.sessions: Dict[str, Dict] = {}
 
     # =========================
@@ -31,7 +29,7 @@ class ContextManager:
             return self.sessions[session_id]
 
     # =========================
-    # Analysis Data
+    # Analysis
     # =========================
     def set_data(self, session_id: str, analysis: Dict):
         session = self._get_session(session_id)
@@ -52,12 +50,16 @@ class ContextManager:
             "answer": answer
         })
 
+        # Limit history (🔥 مهم جداً)
+        if len(session["history"]) > 20:
+            session["history"] = session["history"][-20:]
+
     def get_history(self, session_id: str) -> List[Dict]:
         session = self._get_session(session_id)
         return session.get("history", [])
 
     # =========================
-    # Optional: Clear Session
+    # Clear
     # =========================
     def clear_session(self, session_id: str):
         with self._lock:
