@@ -46,15 +46,12 @@ def query_ai(question: str):
 
     response = router.route(question, analysis)
 
-    context.add_history(question, response)
-
-    return {"response": response}
-
-    # ✅ داخل الدالة
-    analysis = context.get_data()
-    router = AIRouter()
-    response = router.route(question, analysis)
+    decision_engine = DecisionEngine()
+    decisions = decision_engine.analyze(response)
 
     context.add_history(question, response)
 
-    return {"response": response}
+    return {
+        "response": response,
+        "decisions": decisions
+    }
