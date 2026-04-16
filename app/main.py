@@ -68,7 +68,7 @@ def query_ai(question: str):
         }
 
     except Exception as e:
-        return {"error": str(e)}
-
-    except Exception as e:
-        return {"error": str(e)}
+        return {
+            "error": str(e),
+            "type": str(type(e))
+        }
