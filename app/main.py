@@ -48,19 +48,24 @@ async def upload_file(file: UploadFile = File(...)):
 @app.post("/query")
 def query_ai(question: str):
 
-    analysis = context.get_data() or {}
+    try:
+        analysis = context.get_data() or {}
 
-    response = router.route(question, analysis)
+        response = router.route(question, analysis)
 
-    decision_engine = DecisionEngine()
-    decisions = decision_engine.analyze(response)
-    action_executor = ActionExecutor()
-    actions = action_executor.execute(decisions)
-    
-    context.add_history(question, response)
+        decision_engine = DecisionEngine()
+        decisions = decision_engine.analyze(response)
 
-    return {
-    "response": response,
-    "decisions": decisions,
-    "actions": actions
-}
+        action_executor = ActionExecutor()
+        actions = action_executor.execute(decisions)
+
+        context.add_history(question, response)
+
+        return {
+            "response": response,
+            "decisions": decisions,
+            "actions": actions
+        }
+
+    except Exception as e:
+        return {"error": str(e)}
