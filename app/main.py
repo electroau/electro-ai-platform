@@ -29,7 +29,7 @@ logger = logging.getLogger("electro-ai")
 # =========================
 app = FastAPI(
     title="Electro AI Platform",
-    version="2.0.0"
+    version="2.1.0"
 )
 
 
@@ -46,7 +46,7 @@ app.add_middleware(
 
 
 # =========================
-# Dependency Injection (بدل Global State)
+# Dependency Injection
 # =========================
 def get_context():
     return ContextManager()
@@ -90,6 +90,10 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = None
 
 
+class UploadRequest(BaseModel):
+    session_id: Optional[str] = None
+
+
 # =========================
 # Root
 # =========================
@@ -98,7 +102,7 @@ def root():
     return {
         "status": "running",
         "system": "Electro AI Platform",
-        "version": "2.0"
+        "version": "2.1"
     }
 
 
@@ -130,18 +134,22 @@ def get_work_orders(db: Database = Depends(get_db)):
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
+    session_id: Optional[str] = None,
     context: ContextManager = Depends(get_context)
 ):
     try:
+        sid = session_id or "default"
+
         df = pd.read_excel(file.file)
         analysis = analyze_dataframe(df)
 
-        context.set_data(analysis)
+        context.set_data(sid, analysis)
 
-        logger.info("File uploaded and analyzed")
+        logger.info(f"File uploaded and analyzed for session: {sid}")
 
         return {
             "message": "File uploaded and analyzed successfully",
+            "session_id": sid,
             "columns": analysis.get("columns", [])
         }
 
@@ -161,6 +169,8 @@ def query_ai(
     orchestrator: AIOrchestrator = Depends(get_orchestrator)
 ):
     try:
+        sid = request.session_id or "default"
+
         # =========================
         # Build Business Context 🔥
         # =========================
@@ -168,7 +178,7 @@ def query_ai(
             "client": db.get_client(request.client_id) if request.client_id else None,
             "equipment": db.get_equipment(request.equipment_id) if request.equipment_id else None,
             "history": db.get_history(request.client_id) if request.client_id else [],
-            "analysis": context.get_data() or {}
+            "analysis": context.get_data(sid) or {}
         }
 
         # =========================
@@ -179,9 +189,13 @@ def query_ai(
         # =========================
         # Memory
         # =========================
-        context.add_history(request.question, result.get("response"))
+        context.add_history(
+            sid,
+            request.question,
+            result.get("response")
+        )
 
-        logger.info(f"Query processed: {request.question}")
+        logger.info(f"Query processed: {request.question} | session: {sid}")
 
         return result
 
