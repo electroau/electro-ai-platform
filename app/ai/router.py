@@ -12,21 +12,25 @@ class AIRouter:
 
     def detect_intent(self, question: str):
 
-        q = question.lower()
+    q = question.lower()
 
-        if any(word in q for word in [
-            "error", "alarm", "fault", "not working",
-            "fail", "trip", "issue", "problem"
-        ]):
-            return "troubleshooting"
+    if any(word in q for word in [
+        "error", "alarm", "fault", "not working",
+        "fail", "trip", "issue", "problem"
+    ]):
+        return "troubleshooting"
 
-        if any(word in q for word in [
-            "analyze", "analysis", "trend", "pattern",
-            "data", "report", "insight"
-        ]):
-            return "analysis"
-
+    if any(word in q for word in [
+        "price", "cost", "profit", "sales"
+    ]):
         return "qa"
+
+    if any(word in q for word in [
+        "analyze", "analysis", "data"
+    ]):
+        return "analysis"
+
+    return "qa"
 
     def route(self, question, analysis):
 
