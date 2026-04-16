@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
 import pandas as pd
 
@@ -6,7 +7,13 @@ from app.ai.router import AIRouter
 from app.core.context import ContextManager
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 context = ContextManager()
 last_analysis = None
 
@@ -34,10 +41,14 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/query")
 def query_ai(question: str):
-    global last_analysis
 
-    if last_analysis is None:
-        return {"error": "Upload a file first"}
+    analysis = context.get_data() or {}
+
+    response = router.route(question, analysis)
+
+    context.add_history(question, response)
+
+    return {"response": response}
 
     # ✅ داخل الدالة
     analysis = context.get_data()
