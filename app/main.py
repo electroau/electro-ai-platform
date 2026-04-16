@@ -1,15 +1,22 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, UploadFile, File
 import pandas as pd
+import logging
 
 from app.analysis.analyzer import analyze_dataframe
 from app.ai.router import AIRouter
+from app.ai.decision import DecisionEngine
 from app.core.context import ContextManager
 from app.core.actions import ActionExecutor
 from app.core.database import Database
 
-db = Database()
+# 🔥 Logging (مهم جدًا)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 🔥 App init
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,48 +24,76 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 🔥 Core systems
 context = ContextManager()
-last_analysis = None
+router = AIRouter()
+decision_engine = DecisionEngine()
+action_executor = ActionExecutor()
+db = Database()
 
 
+# =========================
+# Root
+# =========================
 @app.get("/")
 def root():
     return {"message": "Electro AI Platform Running"}
-    
+
+
+# =========================
+# Work Orders
+# =========================
 @app.get("/work-orders")
 def get_work_orders():
-    return db.get_work_orders()
+    try:
+        return db.get_work_orders()
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return {"error": "Database error"}
 
+
+# =========================
+# Upload
+# =========================
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
-    global last_analysis
+    try:
+        df = pd.read_excel(file.file)
+        analysis = analyze_dataframe(df)
 
-    df = pd.read_excel(file.file)
-    last_analysis = analyze_dataframe(df)
+        context.set_data(analysis)
 
-    # ✅ داخل الدالة
-    context.set_data(last_analysis)
+        return {
+            "message": "File uploaded and analyzed successfully",
+            "columns": analysis.get("columns", [])
+        }
 
-    return {
-        "message": "File uploaded and analyzed successfully",
-        "columns": last_analysis["columns"]
-    }
+    except Exception as e:
+        logger.error(f"Upload Error: {e}")
+        return {"error": "Failed to process file"}
 
 
+# =========================
+# Query (🔥 أهم endpoint)
+# =========================
 @app.post("/query")
 def query_ai(question: str):
 
     try:
+        # 🧠 Context
         analysis = context.get_data() or {}
 
+        # 🧠 AI Routing
         response = router.route(question, analysis)
 
-        decision_engine = DecisionEngine()
+        # 🧠 Decision Layer
         decisions = decision_engine.analyze(response)
 
-        action_executor = ActionExecutor()
+        # ⚙️ Actions Layer
         actions = action_executor.execute(decisions)
 
+        # 🧠 Memory
         context.add_history(question, response)
 
         return {
@@ -68,7 +103,9 @@ def query_ai(question: str):
         }
 
     except Exception as e:
+        logger.error(f"Query Error: {e}")
+
         return {
-            "error": str(e),
-            "type": str(type(e))
+            "error": "Internal processing error",
+            "details": str(e)
         }
