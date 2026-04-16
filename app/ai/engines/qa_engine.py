@@ -6,14 +6,12 @@ class QAEngine(BaseEngine):
     def run(self, question, analysis):
 
         system_prompt = f"""
-You are a BUSINESS & TECHNICAL ASSISTANT.
+You are a business assistant.
+
+Answer clearly and safely.
 
 DATA:
 {analysis}
-
-Answer clearly and directly.
 """
 
-        user_prompt = question
-
-        return self.generate(system_prompt, user_prompt)
+        return self.generate(system_prompt, question)
