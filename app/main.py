@@ -13,8 +13,12 @@ from app.core.actions import ActionExecutor
 from app.core.database import Database
 
 
-app = FastAPI(title="Electro AI Platform", version="4.0")
+app = FastAPI(title="Electro AI Platform", version="4.1")
 
+
+# =========================
+# CORS
+# =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,6 +27,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# =========================
+# Core Systems
+# =========================
 context = ContextManager()
 router = AIRouter()
 decision_engine = DecisionEngine()
@@ -36,6 +44,9 @@ orchestrator = AIOrchestrator(
 )
 
 
+# =========================
+# Request Model
+# =========================
 class QueryRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
@@ -65,26 +76,42 @@ async def upload_image(file: UploadFile = File(...)):
 
 
 # =========================
-# Query
+# Query 🔥 (Enhanced Memory)
 # =========================
 @app.post("/query")
 def query_ai(request: QueryRequest):
     try:
         sid = request.session_id or "default"
 
+        # =========================
+        # Context Build
+        # =========================
         ctx = {
             "analysis": context.get_data(sid),
             "history": context.get_history(sid),
+            "vision": context.get_vision(sid),  # 🔥 من الذاكرة
             "image_path": request.image_path
         }
 
+        # =========================
+        # Run AI
+        # =========================
         result = orchestrator.run(request.question, ctx)
 
+        # =========================
+        # Save History
+        # =========================
         context.add_history(
             sid,
             request.question,
             result.get("response")
         )
+
+        # =========================
+        # Save Vision 🔥
+        # =========================
+        if result.get("vision"):
+            context.set_vision(sid, result.get("vision"))
 
         return result
 
