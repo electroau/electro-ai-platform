@@ -7,15 +7,6 @@ from sentence_transformers import SentenceTransformer
 
 
 class SemanticRAG:
-    """
-    Production-ready Semantic RAG (Local)
-
-    Features:
-    - Works even if no docs exist
-    - Persistent cache (no recompute)
-    - Fast similarity search
-    - Ready for future upload system
-    """
 
     def __init__(self, docs_path="docs", cache_path="rag_cache.json"):
         self.docs_path = docs_path
@@ -29,21 +20,39 @@ class SemanticRAG:
         self._load_or_build()
 
     # =========================
-    # Load or Build Cache 🔥
+    # Load or Build
     # =========================
     def _load_or_build(self):
-        # Load existing cache
         if os.path.exists(self.cache_path):
             self._load_cache()
             return
 
-        # No docs → safe exit
         if not os.path.exists(self.docs_path) or not os.listdir(self.docs_path):
-            print("⚠️ No documents found. RAG is empty but system is OK.")
+            print("⚠️ No documents found. RAG empty.")
             return
 
-        # Build new index
         self._build_index()
+        self._save_cache()
+
+    # =========================
+    # Add PDF dynamically 🔥
+    # =========================
+    def add_pdf(self, file_path: str):
+
+        text = self._read_pdf(file_path)
+        chunks = self._chunk_text(text)
+
+        for chunk in chunks:
+            emb = self.model.encode(chunk)
+
+            self.chunks.append({
+                "content": chunk,
+                "source": os.path.basename(file_path)
+            })
+
+            self.embeddings.append(emb.tolist())
+
+        # Save updated cache
         self._save_cache()
 
     # =========================
@@ -52,20 +61,7 @@ class SemanticRAG:
     def _build_index(self):
         for file in os.listdir(self.docs_path):
             if file.endswith(".pdf"):
-                path = os.path.join(self.docs_path, file)
-                text = self._read_pdf(path)
-
-                chunks = self._chunk_text(text)
-
-                for chunk in chunks:
-                    emb = self.model.encode(chunk)
-
-                    self.chunks.append({
-                        "content": chunk,
-                        "source": file
-                    })
-
-                    self.embeddings.append(emb.tolist())
+                self.add_pdf(os.path.join(self.docs_path, file))
 
     # =========================
     # Save Cache
@@ -111,7 +107,7 @@ class SemanticRAG:
         return [text[i:i + size] for i in range(0, len(text), size)]
 
     # =========================
-    # Search 🔥
+    # Search
     # =========================
     def search(self, query: str, top_k: int = 3) -> List[Dict]:
 
