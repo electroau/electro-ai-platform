@@ -1,0 +1,14 @@
+{
+  "HIGH_CONDUCTIVITY": {
+    "possible_causes": [
+      "Contamination in water",
+      "Sensor failure",
+      "Improper chemical dosing"
+    ],
+    "recommended_actions": [
+      "Check sensor calibration",
+      "Inspect water source",
+      "Verify chemical dosing system"
+    ]
+  }
+}
