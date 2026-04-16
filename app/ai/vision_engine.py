@@ -6,13 +6,11 @@ from openai import OpenAI
 
 class VisionEngine:
     """
-    Industrial Vision Engine
+    Industrial Vision Engine (Production Ready)
 
-    Features:
     - Real AI vision analysis
     - Industrial-focused reasoning
-    - Safe fallback if API fails
-    - Ready for system integration
+    - Safe fallback (no crash)
     """
 
     def __init__(self):
@@ -30,10 +28,11 @@ class VisionEngine:
     # =========================
     def analyze(self, image_path: str) -> Dict:
 
+        # 🔒 Safety check
         if not image_path or not os.path.exists(image_path):
             return {
-                "error": "Image not found",
-                "analysis": None
+                "image_path": image_path,
+                "analysis": "Image not found"
             }
 
         try:
@@ -45,13 +44,7 @@ class VisionEngine:
                     {
                         "role": "system",
                         "content": """
-You are a SENIOR INDUSTRIAL ENGINEER with expertise in:
-
-- PLC systems
-- HMI panels
-- SCADA systems
-- Industrial equipment
-- Electrical & mechanical systems
+You are a SENIOR INDUSTRIAL ENGINEER.
 
 Analyze the image as a REAL industrial system.
 
@@ -61,10 +54,10 @@ Focus on:
 - System state (running / stopped / fault)
 - Abnormal conditions
 
-DO NOT describe the image casually.
+DO NOT describe casually.
 Think like a field engineer diagnosing a real system.
 
-Return structured analysis.
+Return clear technical analysis.
 """
                     },
                     {
@@ -82,15 +75,13 @@ Return structured analysis.
                 ]
             )
 
-            result_text = response.choices[0].message.content
-
             return {
                 "image_path": image_path,
-                "analysis": result_text
+                "analysis": response.choices[0].message.content
             }
 
         except Exception as e:
-            # 🔥 مهم جداً: لا نكسر النظام
+            # 🔥 لا يكسر النظام
             return {
                 "image_path": image_path,
                 "analysis": "Vision analysis failed",
