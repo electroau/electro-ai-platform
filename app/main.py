@@ -13,10 +13,7 @@ from app.core.actions import ActionExecutor
 from app.core.database import Database
 
 
-# =========================
-# Init
-# =========================
-app = FastAPI(title="Electro AI Platform", version="3.0")
+app = FastAPI(title="Electro AI Platform", version="4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,10 +23,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# =========================
-# Core Systems
-# =========================
 context = ContextManager()
 router = AIRouter()
 decision_engine = DecisionEngine()
@@ -43,33 +36,28 @@ orchestrator = AIOrchestrator(
 )
 
 
-# =========================
-# Models
-# =========================
 class QueryRequest(BaseModel):
     question: str
     session_id: Optional[str] = None
+    image_path: Optional[str] = None
 
 
 # =========================
-# Upload PDF 🔥
+# Upload Image 🔥
 # =========================
-@app.post("/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...)):
+@app.post("/upload-image")
+async def upload_image(file: UploadFile = File(...)):
     try:
-        os.makedirs("docs", exist_ok=True)
+        os.makedirs("images", exist_ok=True)
 
-        file_path = os.path.join("docs", file.filename)
+        file_path = os.path.join("images", file.filename)
 
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 🔥 إضافة مباشرة للـ RAG
-        orchestrator.rag.add_pdf(file_path)
-
         return {
-            "message": "PDF uploaded and indexed",
-            "file": file.filename
+            "message": "Image uploaded",
+            "path": file_path
         }
 
     except Exception as e:
@@ -86,7 +74,8 @@ def query_ai(request: QueryRequest):
 
         ctx = {
             "analysis": context.get_data(sid),
-            "history": context.get_history(sid)
+            "history": context.get_history(sid),
+            "image_path": request.image_path
         }
 
         result = orchestrator.run(request.question, ctx)
