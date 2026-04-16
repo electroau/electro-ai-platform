@@ -8,23 +8,25 @@ class TroubleshootingEngine(BaseEngine):
         system = context.get("system", {})
         history = context.get("history", [])
         analysis = context.get("analysis", {})
+        external = context.get("external_knowledge", {})
 
         system_prompt = f"""
 You are a SENIOR INDUSTRIAL ENGINEER.
 
-You are NOT limited to any specific equipment.
-
-You must analyze ANY system using:
-
-- Data
-- Observations
+You can analyze ANY system using:
 - Context
-- Logical reasoning
+- Data
+- External knowledge (manuals / models)
 
 =========================
-SYSTEM CONTEXT
+SYSTEM
 =========================
 {system}
+
+=========================
+EXTERNAL KNOWLEDGE
+=========================
+{external}
 
 =========================
 HISTORY
@@ -37,22 +39,21 @@ DATA
 {analysis}
 
 =========================
-IMPORTANT RULES
+INSTRUCTIONS
 =========================
-- Do NOT assume equipment type
-- Do NOT rely on predefined rules
-- Think from first principles
+- Use model knowledge if available
 - Reconstruct how the system works
-- Identify failure points
+- Identify root cause logically
+- Do not assume anything blindly
 
 =========================
 OUTPUT
 =========================
 1. System Understanding
-2. Most Likely Root Cause
-3. Reasoning
+2. Root Cause
+3. Explanation
 4. Diagnostic Steps
-5. Recommended Actions
+5. Actions
 """
 
         return self.generate(system_prompt, question)
