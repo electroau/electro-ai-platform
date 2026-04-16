@@ -11,11 +11,10 @@ class SemanticRAG:
     Production-ready Semantic RAG (Local)
 
     Features:
-    - PDF ingestion
-    - Chunking
-    - Embeddings
-    - Persistent storage (no recompute)
+    - Works even if no docs exist
+    - Persistent cache (no recompute)
     - Fast similarity search
+    - Ready for future upload system
     """
 
     def __init__(self, docs_path="docs", cache_path="rag_cache.json"):
@@ -33,19 +32,24 @@ class SemanticRAG:
     # Load or Build Cache 🔥
     # =========================
     def _load_or_build(self):
+        # Load existing cache
         if os.path.exists(self.cache_path):
             self._load_cache()
-        else:
-            self._build_index()
-            self._save_cache()
+            return
+
+        # No docs → safe exit
+        if not os.path.exists(self.docs_path) or not os.listdir(self.docs_path):
+            print("⚠️ No documents found. RAG is empty but system is OK.")
+            return
+
+        # Build new index
+        self._build_index()
+        self._save_cache()
 
     # =========================
     # Build Index
     # =========================
     def _build_index(self):
-        if not os.path.exists(self.docs_path):
-            return
-
         for file in os.listdir(self.docs_path):
             if file.endswith(".pdf"):
                 path = os.path.join(self.docs_path, file)
@@ -82,8 +86,8 @@ class SemanticRAG:
         with open(self.cache_path, "r") as f:
             data = json.load(f)
 
-        self.chunks = data["chunks"]
-        self.embeddings = data["embeddings"]
+        self.chunks = data.get("chunks", [])
+        self.embeddings = data.get("embeddings", [])
 
     # =========================
     # Read PDF
