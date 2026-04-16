@@ -4,12 +4,14 @@ from typing import Dict, List, Optional
 
 class ContextManager:
     """
-    Production-ready Context Manager (Hybrid)
+    Advanced Context Manager (Production Ready)
 
     Features:
-    - Session-based
     - Thread-safe
-    - Ready for Redis upgrade
+    - Multi-session
+    - Structured memory
+    - Vision support
+    - Ready for DB/Redis upgrade
     """
 
     def __init__(self):
@@ -24,12 +26,14 @@ class ContextManager:
             if session_id not in self.sessions:
                 self.sessions[session_id] = {
                     "analysis": None,
-                    "history": []
+                    "history": [],
+                    "vision": None,
+                    "metadata": {}
                 }
             return self.sessions[session_id]
 
     # =========================
-    # Analysis
+    # Analysis Data
     # =========================
     def set_data(self, session_id: str, analysis: Dict):
         session = self._get_session(session_id)
@@ -38,6 +42,28 @@ class ContextManager:
     def get_data(self, session_id: str) -> Optional[Dict]:
         session = self._get_session(session_id)
         return session.get("analysis")
+
+    # =========================
+    # Vision Memory 🔥
+    # =========================
+    def set_vision(self, session_id: str, vision_data: Dict):
+        session = self._get_session(session_id)
+        session["vision"] = vision_data
+
+    def get_vision(self, session_id: str) -> Optional[Dict]:
+        session = self._get_session(session_id)
+        return session.get("vision")
+
+    # =========================
+    # Metadata (Future use)
+    # =========================
+    def set_metadata(self, session_id: str, key: str, value):
+        session = self._get_session(session_id)
+        session["metadata"][key] = value
+
+    def get_metadata(self, session_id: str, key: str):
+        session = self._get_session(session_id)
+        return session["metadata"].get(key)
 
     # =========================
     # History
@@ -50,7 +76,7 @@ class ContextManager:
             "answer": answer
         })
 
-        # Limit history (🔥 مهم جداً)
+        # 🔥 Limit history (performance)
         if len(session["history"]) > 20:
             session["history"] = session["history"][-20:]
 
@@ -59,7 +85,7 @@ class ContextManager:
         return session.get("history", [])
 
     # =========================
-    # Clear
+    # Clear Session
     # =========================
     def clear_session(self, session_id: str):
         with self._lock:
