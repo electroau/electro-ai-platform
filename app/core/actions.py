@@ -1,4 +1,10 @@
+from app.core.database import Database
+
+
 class ActionExecutor:
+
+    def __init__(self):
+        self.db = Database()
 
     def execute(self, decisions):
 
@@ -18,7 +24,8 @@ class ActionExecutor:
         return results
 
     def create_work_order(self, text):
-        return f"✅ Work Order Created: {text}"
+        self.db.insert_work_order(text)
+        return f"✅ Work Order Saved: {text}"
 
     def log_action(self, text):
         return f"📝 Logged: {text}"
