@@ -5,6 +5,7 @@ import pandas as pd
 from app.analysis.analyzer import analyze_dataframe
 from app.ai.router import AIRouter
 from app.core.context import ContextManager
+from app.core.actions import ActionExecutor
 
 app = FastAPI()
 app.add_middleware(
@@ -48,10 +49,13 @@ def query_ai(question: str):
 
     decision_engine = DecisionEngine()
     decisions = decision_engine.analyze(response)
-
+    action_executor = ActionExecutor()
+    actions = action_executor.execute(decisions)
+    
     context.add_history(question, response)
 
     return {
-        "response": response,
-        "decisions": decisions
-    }
+    "response": response,
+    "decisions": decisions,
+    "actions": actions
+}
