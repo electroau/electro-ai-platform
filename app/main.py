@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 import pandas as pd
 
 from app.analysis.analyzer import analyze_dataframe
-from app.ai.engine import ask_ai
+from app.ai.router import AIRouter
 from app.core.context import ContextManager
 
 app = FastAPI()
@@ -41,7 +41,8 @@ def query_ai(question: str):
 
     # ✅ داخل الدالة
     analysis = context.get_data()
-    response = ask_ai(question, analysis)
+    router = AIRouter()
+    response = router.route(question, analysis)
 
     context.add_history(question, response)
 
