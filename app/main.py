@@ -1,41 +1,23 @@
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile, File, Depends
+from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional
-import pandas as pd
-import logging
+import shutil
+import os
 
-from app.analysis.analyzer import analyze_dataframe
+from app.ai.orchestrator import AIOrchestrator
 from app.ai.router import AIRouter
 from app.ai.decision import DecisionEngine
-from app.ai.orchestrator import AIOrchestrator
 from app.core.context import ContextManager
 from app.core.actions import ActionExecutor
 from app.core.database import Database
 
 
 # =========================
-# Logging
+# Init
 # =========================
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-)
-logger = logging.getLogger("electro-ai")
+app = FastAPI(title="Electro AI Platform", version="3.0")
 
-
-# =========================
-# App Init
-# =========================
-app = FastAPI(
-    title="Electro AI Platform",
-    version="2.2.0"
-)
-
-
-# =========================
-# CORS
-# =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,7 +28,7 @@ app.add_middleware(
 
 
 # =========================
-# 🔥 SINGLETONS (مهم جداً)
+# Core Systems
 # =========================
 context = ContextManager()
 router = AIRouter()
@@ -62,67 +44,36 @@ orchestrator = AIOrchestrator(
 
 
 # =========================
-# Request Models
+# Models
 # =========================
 class QueryRequest(BaseModel):
     question: str
-    client_id: Optional[int] = None
-    equipment_id: Optional[int] = None
     session_id: Optional[str] = None
 
 
 # =========================
-# Root
+# Upload PDF 🔥
 # =========================
-@app.get("/")
-def root():
-    return {
-        "status": "running",
-        "version": "2.2"
-    }
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-# =========================
-# Work Orders
-# =========================
-@app.get("/work-orders")
-def get_work_orders():
+@app.post("/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...)):
     try:
-        return db.get_work_orders()
-    except Exception:
-        logger.exception("DB Error")
-        return {"error": "Database error"}
+        os.makedirs("docs", exist_ok=True)
 
+        file_path = os.path.join("docs", file.filename)
 
-# =========================
-# Upload
-# =========================
-@app.post("/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-    session_id: Optional[str] = None
-):
-    try:
-        sid = session_id or "default"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-        df = pd.read_excel(file.file)
-        analysis = analyze_dataframe(df)
-
-        context.set_data(sid, analysis)
+        # 🔥 إضافة مباشرة للـ RAG
+        orchestrator.rag.add_pdf(file_path)
 
         return {
-            "message": "File processed",
-            "session_id": sid
+            "message": "PDF uploaded and indexed",
+            "file": file.filename
         }
 
-    except Exception:
-        logger.exception("Upload failed")
-        return {"error": "Upload failed"}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # =========================
@@ -133,14 +84,12 @@ def query_ai(request: QueryRequest):
     try:
         sid = request.session_id or "default"
 
-        business_context = {
-            "client": db.get_client(request.client_id),
-            "equipment": db.get_equipment(request.equipment_id),
-            "history": db.get_history(request.client_id),
-            "analysis": context.get_data(sid)
+        ctx = {
+            "analysis": context.get_data(sid),
+            "history": context.get_history(sid)
         }
 
-        result = orchestrator.run(request.question, business_context)
+        result = orchestrator.run(request.question, ctx)
 
         context.add_history(
             sid,
@@ -151,8 +100,4 @@ def query_ai(request: QueryRequest):
         return result
 
     except Exception as e:
-        logger.exception("Query failed")
-        return {
-            "error": "Internal error",
-            "details": str(e)
-        }
+        return {"error": str(e)}
