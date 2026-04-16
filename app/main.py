@@ -15,7 +15,7 @@ from app.core.database import Database
 
 
 # =========================
-# Logging (Production-ready)
+# Logging
 # =========================
 logging.basicConfig(
     level=logging.INFO,
@@ -29,16 +29,16 @@ logger = logging.getLogger("electro-ai")
 # =========================
 app = FastAPI(
     title="Electro AI Platform",
-    version="2.1.0"
+    version="2.2.0"
 )
 
 
 # =========================
-# CORS (Production safer)
+# CORS
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # لاحقاً نحدد الدومين
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,38 +46,19 @@ app.add_middleware(
 
 
 # =========================
-# Dependency Injection
+# 🔥 SINGLETONS (مهم جداً)
 # =========================
-def get_context():
-    return ContextManager()
+context = ContextManager()
+router = AIRouter()
+decision_engine = DecisionEngine()
+action_executor = ActionExecutor()
+db = Database()
 
-
-def get_router():
-    return AIRouter()
-
-
-def get_decision_engine():
-    return DecisionEngine()
-
-
-def get_action_executor():
-    return ActionExecutor()
-
-
-def get_db():
-    return Database()
-
-
-def get_orchestrator(
-    router: AIRouter = Depends(get_router),
-    decision_engine: DecisionEngine = Depends(get_decision_engine),
-    action_executor: ActionExecutor = Depends(get_action_executor),
-):
-    return AIOrchestrator(
-        router=router,
-        decision_engine=decision_engine,
-        action_executor=action_executor
-    )
+orchestrator = AIOrchestrator(
+    router=router,
+    decision_engine=decision_engine,
+    action_executor=action_executor
+)
 
 
 # =========================
@@ -90,10 +71,6 @@ class QueryRequest(BaseModel):
     session_id: Optional[str] = None
 
 
-class UploadRequest(BaseModel):
-    session_id: Optional[str] = None
-
-
 # =========================
 # Root
 # =========================
@@ -101,26 +78,20 @@ class UploadRequest(BaseModel):
 def root():
     return {
         "status": "running",
-        "system": "Electro AI Platform",
-        "version": "2.1"
+        "version": "2.2"
     }
 
 
-# =========================
-# Health Check
-# =========================
 @app.get("/health")
 def health():
-    return {
-        "status": "ok"
-    }
+    return {"status": "ok"}
 
 
 # =========================
 # Work Orders
 # =========================
 @app.get("/work-orders")
-def get_work_orders(db: Database = Depends(get_db)):
+def get_work_orders():
     try:
         return db.get_work_orders()
     except Exception:
@@ -129,13 +100,12 @@ def get_work_orders(db: Database = Depends(get_db)):
 
 
 # =========================
-# Upload (Data Ingestion)
+# Upload
 # =========================
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    session_id: Optional[str] = None,
-    context: ContextManager = Depends(get_context)
+    session_id: Optional[str] = None
 ):
     try:
         sid = session_id or "default"
@@ -145,64 +115,44 @@ async def upload_file(
 
         context.set_data(sid, analysis)
 
-        logger.info(f"File uploaded and analyzed for session: {sid}")
-
         return {
-            "message": "File uploaded and analyzed successfully",
-            "session_id": sid,
-            "columns": analysis.get("columns", [])
+            "message": "File processed",
+            "session_id": sid
         }
 
     except Exception:
         logger.exception("Upload failed")
-        return {"error": "Failed to process file"}
+        return {"error": "Upload failed"}
 
 
 # =========================
-# Query (🔥 Orchestrator Entry Point)
+# Query
 # =========================
 @app.post("/query")
-def query_ai(
-    request: QueryRequest,
-    context: ContextManager = Depends(get_context),
-    db: Database = Depends(get_db),
-    orchestrator: AIOrchestrator = Depends(get_orchestrator)
-):
+def query_ai(request: QueryRequest):
     try:
         sid = request.session_id or "default"
 
-        # =========================
-        # Build Business Context 🔥
-        # =========================
         business_context = {
-            "client": db.get_client(request.client_id) if request.client_id else None,
-            "equipment": db.get_equipment(request.equipment_id) if request.equipment_id else None,
-            "history": db.get_history(request.client_id) if request.client_id else [],
-            "analysis": context.get_data(sid) or {}
+            "client": db.get_client(request.client_id),
+            "equipment": db.get_equipment(request.equipment_id),
+            "history": db.get_history(request.client_id),
+            "analysis": context.get_data(sid)
         }
 
-        # =========================
-        # AI Orchestrator
-        # =========================
         result = orchestrator.run(request.question, business_context)
 
-        # =========================
-        # Memory
-        # =========================
         context.add_history(
             sid,
             request.question,
             result.get("response")
         )
 
-        logger.info(f"Query processed: {request.question} | session: {sid}")
-
         return result
 
     except Exception as e:
-        logger.exception("Query processing failed")
-
+        logger.exception("Query failed")
         return {
-            "error": "Internal processing error",
+            "error": "Internal error",
             "details": str(e)
         }
