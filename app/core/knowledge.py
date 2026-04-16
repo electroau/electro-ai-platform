@@ -11,11 +11,23 @@ class KnowledgeBase:
         with open(os.path.join(knowledge_path, "valves.json")) as f:
             self.valves = json.load(f)
 
+        with open(os.path.join(knowledge_path, "alarms.json")) as f:
+            self.alarms = json.load(f)
+
     def find_valve(self, text: str):
         text = text.upper()
 
         for valve in self.valves:
             if valve in text:
                 return valve, self.valves[valve]
+
+        return None, None
+
+    def find_alarm(self, text: str):
+        text = text.upper()
+
+        for alarm in self.alarms:
+            if alarm in text:
+                return alarm, self.alarms[alarm]
 
         return None, None
