@@ -1,5 +1,7 @@
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Depends
+from pydantic import BaseModel
+from typing import Optional
 import pandas as pd
 import logging
 
@@ -27,12 +29,16 @@ logger = logging.getLogger("electro-ai")
 # =========================
 app = FastAPI(
     title="Electro AI Platform",
-    version="1.0.0"
+    version="2.0.0"
 )
 
+
+# =========================
+# CORS (Production safer)
+# =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # لاحقاً نحدد الدومين
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,20 +46,48 @@ app.add_middleware(
 
 
 # =========================
-# Core Systems (Singleton Style)
+# Dependency Injection (بدل Global State)
 # =========================
-context = ContextManager()
-router = AIRouter()
-decision_engine = DecisionEngine()
-action_executor = ActionExecutor()
-db = Database()
+def get_context():
+    return ContextManager()
 
-# 🔥 العقل المركزي
-orchestrator = AIOrchestrator(
-    router=router,
-    decision_engine=decision_engine,
-    action_executor=action_executor
-)
+
+def get_router():
+    return AIRouter()
+
+
+def get_decision_engine():
+    return DecisionEngine()
+
+
+def get_action_executor():
+    return ActionExecutor()
+
+
+def get_db():
+    return Database()
+
+
+def get_orchestrator(
+    router: AIRouter = Depends(get_router),
+    decision_engine: DecisionEngine = Depends(get_decision_engine),
+    action_executor: ActionExecutor = Depends(get_action_executor),
+):
+    return AIOrchestrator(
+        router=router,
+        decision_engine=decision_engine,
+        action_executor=action_executor
+    )
+
+
+# =========================
+# Request Models
+# =========================
+class QueryRequest(BaseModel):
+    question: str
+    client_id: Optional[int] = None
+    equipment_id: Optional[int] = None
+    session_id: Optional[str] = None
 
 
 # =========================
@@ -64,12 +98,12 @@ def root():
     return {
         "status": "running",
         "system": "Electro AI Platform",
-        "version": "1.0"
+        "version": "2.0"
     }
 
 
 # =========================
-# Health Check (مهم جدًا)
+# Health Check
 # =========================
 @app.get("/health")
 def health():
@@ -82,10 +116,10 @@ def health():
 # Work Orders
 # =========================
 @app.get("/work-orders")
-def get_work_orders():
+def get_work_orders(db: Database = Depends(get_db)):
     try:
         return db.get_work_orders()
-    except Exception as e:
+    except Exception:
         logger.exception("DB Error")
         return {"error": "Database error"}
 
@@ -94,7 +128,10 @@ def get_work_orders():
 # Upload (Data Ingestion)
 # =========================
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    context: ContextManager = Depends(get_context)
+):
     try:
         df = pd.read_excel(file.file)
         analysis = analyze_dataframe(df)
@@ -108,7 +145,7 @@ async def upload_file(file: UploadFile = File(...)):
             "columns": analysis.get("columns", [])
         }
 
-    except Exception as e:
+    except Exception:
         logger.exception("Upload failed")
         return {"error": "Failed to process file"}
 
@@ -117,19 +154,34 @@ async def upload_file(file: UploadFile = File(...)):
 # Query (🔥 Orchestrator Entry Point)
 # =========================
 @app.post("/query")
-def query_ai(question: str):
-
+def query_ai(
+    request: QueryRequest,
+    context: ContextManager = Depends(get_context),
+    db: Database = Depends(get_db),
+    orchestrator: AIOrchestrator = Depends(get_orchestrator)
+):
     try:
-        # 🧠 Context
-        analysis = context.get_data() or {}
+        # =========================
+        # Build Business Context 🔥
+        # =========================
+        business_context = {
+            "client": db.get_client(request.client_id) if request.client_id else None,
+            "equipment": db.get_equipment(request.equipment_id) if request.equipment_id else None,
+            "history": db.get_history(request.client_id) if request.client_id else [],
+            "analysis": context.get_data() or {}
+        }
 
-        # 🔥 AI Orchestrator (العقل المركزي)
-        result = orchestrator.run(question, analysis)
+        # =========================
+        # AI Orchestrator
+        # =========================
+        result = orchestrator.run(request.question, business_context)
 
-        # 🧠 Memory
-        context.add_history(question, result.get("response"))
+        # =========================
+        # Memory
+        # =========================
+        context.add_history(request.question, result.get("response"))
 
-        logger.info(f"Query processed: {question}")
+        logger.info(f"Query processed: {request.question}")
 
         return result
 
