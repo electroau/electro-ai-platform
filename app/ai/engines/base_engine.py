@@ -7,7 +7,7 @@ load_dotenv()
 
 class BaseEngine:
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv(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))
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = "gpt-4o-mini"
 
     def generate(self, system_prompt, user_prompt):
