@@ -6,16 +6,29 @@ import logging
 from app.analysis.analyzer import analyze_dataframe
 from app.ai.router import AIRouter
 from app.ai.decision import DecisionEngine
+from app.ai.orchestrator import AIOrchestrator
 from app.core.context import ContextManager
 from app.core.actions import ActionExecutor
 from app.core.database import Database
 
-# 🔥 Logging (مهم جدًا)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# 🔥 App init
-app = FastAPI()
+# =========================
+# Logging (Production-ready)
+# =========================
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+)
+logger = logging.getLogger("electro-ai")
+
+
+# =========================
+# App Init
+# =========================
+app = FastAPI(
+    title="Electro AI Platform",
+    version="1.0.0"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,12 +38,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔥 Core systems
+
+# =========================
+# Core Systems (Singleton Style)
+# =========================
 context = ContextManager()
 router = AIRouter()
 decision_engine = DecisionEngine()
 action_executor = ActionExecutor()
 db = Database()
+
+# 🔥 العقل المركزي
+orchestrator = AIOrchestrator(
+    router=router,
+    decision_engine=decision_engine,
+    action_executor=action_executor
+)
 
 
 # =========================
@@ -38,7 +61,21 @@ db = Database()
 # =========================
 @app.get("/")
 def root():
-    return {"message": "Electro AI Platform Running"}
+    return {
+        "status": "running",
+        "system": "Electro AI Platform",
+        "version": "1.0"
+    }
+
+
+# =========================
+# Health Check (مهم جدًا)
+# =========================
+@app.get("/health")
+def health():
+    return {
+        "status": "ok"
+    }
 
 
 # =========================
@@ -49,12 +86,12 @@ def get_work_orders():
     try:
         return db.get_work_orders()
     except Exception as e:
-        logger.error(f"DB Error: {e}")
+        logger.exception("DB Error")
         return {"error": "Database error"}
 
 
 # =========================
-# Upload
+# Upload (Data Ingestion)
 # =========================
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
@@ -64,18 +101,20 @@ async def upload_file(file: UploadFile = File(...)):
 
         context.set_data(analysis)
 
+        logger.info("File uploaded and analyzed")
+
         return {
             "message": "File uploaded and analyzed successfully",
             "columns": analysis.get("columns", [])
         }
 
     except Exception as e:
-        logger.error(f"Upload Error: {e}")
+        logger.exception("Upload failed")
         return {"error": "Failed to process file"}
 
 
 # =========================
-# Query (🔥 أهم endpoint)
+# Query (🔥 Orchestrator Entry Point)
 # =========================
 @app.post("/query")
 def query_ai(question: str):
@@ -84,26 +123,18 @@ def query_ai(question: str):
         # 🧠 Context
         analysis = context.get_data() or {}
 
-        # 🧠 AI Routing
-        response = router.route(question, analysis)
-
-        # 🧠 Decision Layer
-        decisions = decision_engine.analyze(response)
-
-        # ⚙️ Actions Layer
-        actions = action_executor.execute(decisions)
+        # 🔥 AI Orchestrator (العقل المركزي)
+        result = orchestrator.run(question, analysis)
 
         # 🧠 Memory
-        context.add_history(question, response)
+        context.add_history(question, result.get("response"))
 
-        return {
-            "response": response,
-            "decisions": decisions,
-            "actions": actions
-        }
+        logger.info(f"Query processed: {question}")
+
+        return result
 
     except Exception as e:
-        logger.error(f"Query Error: {e}")
+        logger.exception("Query processing failed")
 
         return {
             "error": "Internal processing error",
